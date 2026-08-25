@@ -1,0 +1,2077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Michaelhouse | Boarding House Allocation Dashboard</title>
+<style>
+  :root{
+    --red:#E13A3E;
+    --red-dark:#B92E32;
+    --blue:#23346A;
+    --blue-light:#3D51A0;
+    --bg:#F3F4F8;
+    --surface:#FFFFFF;
+    --border:#E1E3EC;
+    --ink:#1D2333;
+    --muted:#6B7180;
+    --available:#1E8E5A;
+    --available-bg:#E8F5EE;
+    --unavailable:#8A8F9C;
+    --unavailable-bg:#EEEFF3;
+    --occupied:#23346A;
+    --occupied-bg:#E9ECF6;
+    --warn:#B45309;
+    --warn-bg:#FDF2E3;
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-heading: 'Franklin Gothic Demi','Arial Narrow',Arial,sans-serif;
+    --font-body: 'Franklin Gothic Book', Arial, Helvetica, sans-serif;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  header.topbar{
+    background:var(--blue);
+    color:#fff;
+    padding:18px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 2px 6px rgba(0,0,0,0.08);
+  }
+  header.topbar .brand{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+  }
+  header.topbar .brand h1{
+    font-family:var(--font-display);
+    font-size:22px;
+    letter-spacing:0.5px;
+    margin:0;
+  }
+  header.topbar .brand span.tag{
+    font-size:12px;
+    color:#C9D0EA;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+  }
+  header.topbar .crest-mark{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--red);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);
+    font-weight:bold;font-size:14px;color:#fff;
+    flex:none;
+  }
+  header.topbar .top-actions{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+    flex:1;
+    max-width:400px;
+    margin-left:24px;
+  }
+  .top-actions-row{
+    display:flex;
+    gap:10px;
+  }
+  .search-wrap{position:relative; width:100%;}
+  .search-wrap input{
+    width:100%;
+    padding:8px 12px;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,0.4);
+    background:rgba(255,255,255,0.12);
+    color:#fff;
+    font-family:var(--font-body);
+    font-size:13px;
+    box-sizing:border-box;
+  }
+  .search-wrap input::placeholder{color:#C9D0EA;}
+  .search-wrap input:focus{outline:none; background:rgba(255,255,255,0.22); border-color:#fff;}
+  .search-results{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    right:0;
+    width:auto;
+    max-height:360px;
+    overflow-y:auto;
+    background:#fff;
+    color:var(--ink);
+    border-radius:8px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.22);
+    z-index:50;
+    display:none;
+  }
+  .search-results.active{display:block;}
+  .search-results .sr-item{
+    padding:10px 14px;
+    border-bottom:1px solid var(--border);
+    cursor:pointer;
+    font-size:13px;
+  }
+  .search-results .sr-item:hover{background:var(--bg);}
+  .search-results .sr-item strong{color:var(--blue); font-family:var(--font-heading);}
+  .search-results .sr-empty{padding:14px; font-size:13px; color:var(--muted);}
+  .top-btn{
+    font-family:var(--font-heading);
+    font-size:12.5px;
+    background:var(--blue-light);
+    color:#fff;
+    border:1.5px solid #fff;
+    padding:8px 15px;
+    border-radius:20px;
+    cursor:pointer;
+    letter-spacing:0.2px;
+    transition:filter .1s ease, transform .05s ease;
+  }
+  .top-btn:hover{filter:brightness(1.12);}
+  .top-btn:active{transform:translateY(1px);}
+  main{
+    max-width:1180px;
+    margin:0 auto;
+    padding:28px 24px 80px;
+  }
+  /* ---- Bed Capacity Heat Map (full width, directly under the banner) ---- */
+  .heatmap-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 4px 12px rgba(35,52,106,0.10);
+    margin-bottom:26px;
+  }
+  .heatmap-ribbon{
+    background:var(--red);
+    color:#fff;
+    font-family:var(--font-heading);
+    font-size:13.5px;
+    letter-spacing:0.3px;
+    padding:10px 16px;
+  }
+  .heatmap-grid{
+    display:grid;
+    grid-template-columns:repeat(5, 62px);
+    justify-content:space-between;
+    gap:4px;
+    padding:14px;
+  }
+  @media (max-width:500px){
+    .heatmap-grid{ grid-template-columns:repeat(2, 62px); justify-content:space-around; }
+  }
+  .heatmap-cell{
+    border-radius:4px;
+    padding:4px 2px;
+    text-align:center;
+    border:1px solid rgba(35,52,106,0.12);
+  }
+  .heatmap-cell .hm-name{
+    font-family:var(--font-heading);
+    font-size:6.5px;
+    line-height:1.1;
+  }
+  .heatmap-cell .hm-beds{
+    font-family:var(--font-heading);
+    font-size:10px;
+    margin-top:1px;
+    line-height:1;
+  }
+  .heatmap-cell .hm-sub{
+    font-size:5px;
+    text-transform:uppercase;
+    letter-spacing:0.2px;
+    margin-top:1px;
+    opacity:0.85;
+  }
+  .heatmap-legend{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 14px 14px;
+    font-size:11px;
+    color:var(--muted);
+    flex-wrap:wrap;
+  }
+  .heatmap-legend-bar{
+    width:110px; height:9px; border-radius:5px;
+    background:linear-gradient(90deg, #4A63C4 0%, #B7C4EE 50%, #B92E32 100%);
+    border:1px solid var(--border);
+  }
+  .heatmap-legend-swatch{
+    width:14px; height:9px; border-radius:3px;
+    background:#E4E6ED; border:1px solid var(--border); display:inline-block;
+  }
+
+  /* ---- Duty Roster — compact, 3 mini tiles in their own full-width row ---- */
+  .duty-tiles-row{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:26px;
+  }
+  .duty-mini-tile{
+    background:var(--blue);
+    border:1.5px solid #fff;
+    border-left:4px solid var(--red);
+    border-radius:8px;
+    padding:9px 12px;
+    cursor:pointer;
+    transition:transform .1s ease;
+  }
+  .duty-mini-tile:hover{ transform:translateY(-2px); }
+  .duty-mini-tile .dmt-label{
+    font-size:9.5px;
+    color:#C9D0EA;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    font-family:var(--font-body);
+  }
+  .duty-mini-tile .dmt-name{
+    font-family:var(--font-heading);
+    color:#fff;
+    font-size:13px;
+    margin-top:3px;
+  }
+  .duty-mini-tile .dmt-name.unassigned{color:#98A2C7; font-style:italic; font-weight:normal; font-family:var(--font-body); font-size:11.5px;}
+
+  .duty-form-panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:5px solid var(--blue);
+    border-radius:var(--radius);
+    padding:22px 26px;
+    max-width:560px;
+  }
+  .duty-form-panel .field{margin-bottom:16px;}
+  .duty-form-panel label{
+    display:block; font-size:12px; color:var(--muted); margin-bottom:5px;
+    text-transform:uppercase; letter-spacing:0.4px;
+  }
+
+  h2.section-title{
+    font-family:var(--font-heading);
+    color:var(--red);
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  p.section-sub{
+    color:var(--muted);
+    margin:0 0 22px;
+    font-size:14px;
+  }
+
+  /* ---- Dashboard tiles (name-only — the heat map above already shows the numbers) ---- */
+  .tile-grid{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:10px;
+  }
+  @media (max-width:640px){
+    .tile-grid{ grid-template-columns:repeat(2, 1fr); }
+  }
+  .tile{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-top:none;
+    border-radius:8px;
+    padding:14px 12px;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 1px 3px rgba(35,52,106,0.06);
+    text-align:center;
+  }
+  .tile:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 18px rgba(35,52,106,0.14);
+    border-color:var(--blue-light);
+  }
+  .tile:focus-visible{outline:3px solid var(--blue-light); outline-offset:2px;}
+  .tile .stripe{
+    position:absolute; top:0; left:0; right:0; height:5px;
+    background:linear-gradient(90deg, var(--red) 0%, var(--red) 60%, var(--blue) 60%, var(--blue) 100%);
+  }
+  .tile h3{
+    font-family:var(--font-heading);
+    font-size:14px;
+    margin:6px 0 0;
+    color:var(--ink);
+    letter-spacing:0.2px;
+  }
+
+  /* ---- House detail view ---- */
+  #house-view{display:none;}
+  .back-btn{
+    background:none;border:none;
+    color:var(--blue);
+    font-family:var(--font-body);
+    font-size:14px;
+    cursor:pointer;
+    padding:6px 0;
+    margin-bottom:10px;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .back-btn:hover{text-decoration:underline;}
+  .house-header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .house-header h2{
+    font-family:var(--font-heading);
+    color:var(--red);
+    font-size:26px;
+    margin:0;
+  }
+
+  .house-stat-band{
+    position:relative;
+    background:var(--blue);
+    border-radius:12px;
+    padding:22px 28px 18px;
+    margin:6px 0 20px;
+    display:flex;
+    align-items:stretch;
+    overflow:hidden;
+    box-shadow:0 8px 22px rgba(35,52,106,0.28);
+  }
+  .house-stat-band::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:7px;
+    background:linear-gradient(90deg, var(--red) 0%, var(--red) 50%, #7C89BE 50%, #7C89BE 100%);
+  }
+  .stat-item{
+    flex:1;
+    text-align:center;
+    padding:6px 14px 0;
+  }
+  .stat-value{
+    font-family:var(--font-heading);
+    font-size:40px;
+    line-height:1;
+    color:#fff;
+  }
+  .stat-value.accent-red{color:#FF8A8D;}
+  .stat-value.accent-green{color:#7CE8B0;}
+  .stat-label{
+    font-size:11px;
+    color:#C9D0EA;
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+    margin-top:6px;
+    font-family:var(--font-body);
+  }
+  .stat-divider{
+    width:1px;
+    background:rgba(255,255,255,0.22);
+    margin:4px 0;
+  }
+
+  /* ---- Festival allocation panel ---- */
+  .festival-panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:5px solid var(--red);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    margin-bottom:26px;
+  }
+  .festival-panel h3{
+    font-family:var(--font-heading);
+    color:var(--blue);
+    font-size:16px;
+    margin:0 0 14px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+  }
+  .festival-fields{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .capacity-line{
+    background:var(--occupied-bg);
+    color:var(--blue);
+    border-radius:8px;
+    padding:10px 14px;
+    font-size:13.5px;
+    margin-bottom:16px;
+    font-family:var(--font-heading);
+  }
+  .capacity-line strong{color:var(--red); font-size:16px;}
+
+  .team-row{
+    border:1px solid var(--border);
+    border-left:4px solid var(--blue);
+    border-radius:8px;
+    padding:14px 16px;
+    margin-bottom:12px;
+    background:#FAFBFD;
+  }
+  .team-row-header{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:10px;
+  }
+  .team-row-header strong{
+    font-family:var(--font-heading); color:var(--blue); font-size:14px; text-transform:uppercase; letter-spacing:0.4px;
+  }
+  .team-remove-btn{
+    background:none; border:none; color:var(--red); font-size:12px; cursor:pointer; font-family:var(--font-body);
+  }
+  .team-remove-btn:hover{text-decoration:underline;}
+  .team-fields{
+    display:grid;
+    grid-template-columns:2fr 1fr 1fr 1fr;
+    gap:10px;
+    align-items:end;
+  }
+  .team-fields .field label{margin-bottom:3px;}
+  .team-subtotal{
+    grid-column:1 / -1;
+    font-size:12px; color:var(--muted); margin-top:4px;
+  }
+  .team-subtotal strong{color:var(--blue);}
+  .teams-summary-hint{
+    font-size:12.5px; padding:8px 12px; border-radius:6px; margin:4px 0 14px;
+  }
+  .teams-summary-hint.fits{background:var(--available-bg); color:var(--available);}
+  .teams-summary-hint.tight{background:var(--warn-bg); color:var(--warn);}
+
+  .field label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:4px;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+  }
+  .field input{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-family:var(--font-body);
+    font-size:14px;
+    background:#FAFBFD;
+  }
+  .field input:focus{outline:2px solid var(--blue-light); border-color:var(--blue-light);}
+
+  .mode-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    font-family:var(--font-heading);
+    font-size:13px;
+    border:none;
+    border-radius:7px;
+    padding:10px 16px;
+    cursor:pointer;
+    transition:filter .1s ease, transform .05s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--red); color:#fff;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-secondary{background:var(--blue); color:#fff;}
+  .btn-secondary:hover{filter:brightness(1.15);}
+  .btn-ghost{background:#fff; color:var(--blue); border:1px solid var(--blue);}
+  .btn-ghost:hover{background:#EEF1FA;}
+  .btn-outline-warn{background:#fff;color:var(--warn);border:1px solid var(--warn);}
+  .btn:disabled{opacity:0.45;cursor:not-allowed;}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
+
+  .manual-banner{
+    margin-top:14px;
+    background:var(--occupied-bg);
+    border:1px dashed var(--blue);
+    color:var(--blue);
+    padding:10px 14px;
+    border-radius:8px;
+    font-size:13px;
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .manual-banner.active{display:flex;}
+  .manual-banner .count{font-family:var(--font-heading);}
+
+  .result-banner{
+    margin-top:14px;
+    padding:12px 14px;
+    border-radius:8px;
+    font-size:13px;
+    display:none;
+  }
+  .result-banner.success{display:block;background:var(--available-bg); color:var(--available); border:1px solid var(--available);}
+  .result-banner.warn{display:block;background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn);}
+
+  /* ---- Blocks ---- */
+  .block{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .block-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    background:var(--blue);
+    color:#fff;
+    padding:8px 14px;
+  }
+  .block-header h4{
+    font-family:var(--font-heading);
+    margin:0;
+    font-size:13px;
+    letter-spacing:0.3px;
+  }
+  .block-header .block-actions{
+    display:flex;
+    gap:6px;
+  }
+  .block-header .block-actions button{
+    font-family:var(--font-body);
+    font-size:10px;
+    background:rgba(255,255,255,0.14);
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.4);
+    padding:4px 8px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .block-header .block-actions button:hover{background:rgba(255,255,255,0.26);}
+
+  .room-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(105px,1fr));
+    gap:6px;
+    padding:10px 12px;
+  }
+  .room-card{
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 7px;
+    background:#FCFCFE;
+    position:relative;
+  }
+  .room-card.available{border-color:var(--available); background:var(--available-bg);}
+  .room-card.unavailable{border-color:var(--unavailable); background:var(--unavailable-bg); opacity:0.85;}
+  .room-card.full{border-color:var(--occupied); background:var(--occupied-bg);}
+  .room-card .room-id{
+    font-family:var(--font-heading);
+    font-size:11px;
+    color:var(--ink);
+  }
+  .room-card .beds-line{
+    font-size:9px;
+    color:var(--muted);
+    margin:1px 0 5px;
+  }
+  .status-pill{
+    display:inline-block;
+    font-size:8.5px;
+    font-weight:bold;
+    padding:1px 6px;
+    border-radius:20px;
+    text-transform:uppercase;
+    letter-spacing:0.2px;
+    cursor:pointer;
+    border:none;
+  }
+  .status-pill.avail{background:var(--available); color:#fff;}
+  .status-pill.unavail{background:var(--unavailable); color:#fff;}
+  .alloc-tags{margin-top:5px; display:flex; flex-direction:column; gap:3px;}
+  .alloc-tag{
+    background:var(--occupied); color:#fff; font-size:9px;
+    padding:2px 5px; border-radius:4px;
+    display:flex; align-items:center; justify-content:space-between; gap:5px;
+  }
+  .alloc-tag button{
+    background:none;border:none;color:#fff;cursor:pointer;font-size:10px;opacity:0.8;line-height:1;
+  }
+  .alloc-tag button:hover{opacity:1;}
+  .manual-stepper{
+    margin-top:5px;
+    display:none;
+    align-items:center;
+    gap:4px;
+  }
+  .manual-stepper.active{display:flex;}
+  .manual-stepper button{
+    width:18px;height:18px;border-radius:4px;border:1px solid var(--blue);
+    background:#fff;color:var(--blue);cursor:pointer;font-size:11px;line-height:1;
+  }
+  .manual-stepper input{
+    width:30px;text-align:center;border:1px solid var(--border);border-radius:4px;
+    padding:2px 1px;font-size:10px;
+  }
+
+  .legend{
+    display:flex;gap:18px;flex-wrap:wrap;
+    margin-bottom:16px;font-size:12px;color:var(--muted);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .legend .lg-avail{background:var(--available-bg); border:1px solid var(--available);}
+  .legend .lg-unavail{background:var(--unavailable-bg); border:1px solid var(--unavailable);}
+  .legend .lg-full{background:var(--occupied-bg); border:1px solid var(--occupied);}
+  .legend .lg-pending{background:var(--warn-bg); border:1px solid var(--warn);}
+
+  .room-card.pending{border-color:var(--warn); background:var(--warn-bg);}
+  .pending-flag{
+    display:inline-block; margin-top:3px; font-size:8.5px; font-weight:bold;
+    color:var(--warn); background:#fff; border:1px solid var(--warn);
+    padding:1px 5px; border-radius:20px; text-transform:uppercase; letter-spacing:0.2px;
+  }
+  .room-card.not-counted{border-color:var(--muted); background:#F0F0F3; opacity:0.75;}
+  .not-counted-flag{
+    display:inline-block; margin-top:3px; font-size:8.5px; font-weight:bold;
+    color:var(--muted); background:#fff; border:1px solid var(--muted);
+    padding:1px 5px; border-radius:20px; text-transform:uppercase; letter-spacing:0.2px;
+  }
+
+  .empty-house{
+    background:var(--surface);
+    border:1px dashed var(--border);
+    border-radius:var(--radius);
+    padding:40px 24px;
+    text-align:center;
+    color:var(--muted);
+  }
+  .empty-house strong{color:var(--blue); display:block; margin-bottom:6px; font-family:var(--font-heading); font-size:16px;}
+
+  .room-edit-row{
+    margin-top:5px; display:flex; gap:4px;
+  }
+  .room-edit-row button{
+    flex:1; font-size:9px; padding:3px 5px; border-radius:4px; cursor:pointer;
+    font-family:var(--font-body);
+  }
+  .room-edit-row .edit-btn{background:#fff; border:1px solid var(--blue); color:var(--blue);}
+  .room-edit-row .delete-btn{background:#fff; border:1px solid var(--red); color:var(--red);}
+  .add-room-btn{
+    margin:4px 18px 16px;
+    background:#fff; border:1px dashed var(--blue); color:var(--blue);
+    padding:8px 14px; border-radius:8px; cursor:pointer; font-size:12.5px; font-family:var(--font-body);
+  }
+  .add-block-btn{
+    background:#fff; border:1px dashed var(--red); color:var(--red);
+    padding:12px 18px; border-radius:8px; cursor:pointer; font-size:13px; font-family:var(--font-body);
+    width:100%; margin-top:8px;
+  }
+
+  @media print{
+    header.topbar, .back-btn, .festival-panel, .legend, .no-print,
+    .block-actions, .status-pill, .manual-stepper, .room-edit-row, .add-room-btn, .add-block-btn,
+    #data-note-banner { display:none !important; }
+    body{background:#fff;}
+    .house-stat-band{background:#fff !important; box-shadow:none; border:2px solid var(--blue);}
+    .house-stat-band::before{background:var(--red) !important;}
+    .stat-value, .stat-value.accent-red, .stat-value.accent-green{color:var(--blue) !important;}
+    .stat-label{color:var(--muted) !important;}
+    .stat-divider{background:var(--border) !important;}
+    .block{border:1px solid #999; break-inside:avoid;}
+    .block-header{background:#fff !important; color:#000 !important; border-bottom:1px solid #999;}
+    .room-card{break-inside:avoid;}
+  }
+
+  footer.foot{
+    text-align:center;
+    font-size:12px;
+    color:var(--muted);
+    padding:20px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="crest-mark">MH</div>
+    <div>
+      <h1>Michaelhouse</h1>
+      <span class="tag">Boarding House Allocation Dashboard</span>
+    </div>
+  </div>
+  <div class="top-actions">
+    <div class="top-actions-row">
+      <button class="top-btn" id="save-progress-btn">Save Progress</button>
+      <button class="top-btn" id="load-progress-btn">Load Progress</button>
+      <input type="file" id="load-progress-input" accept="application/json" style="display:none;">
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="global-search" placeholder="Search guest name or room, any house...">
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- DASHBOARD VIEW -->
+  <section id="dashboard-view">
+
+    <div class="heatmap-card heatmap-full">
+      <div class="heatmap-ribbon">Bed Capacity Heat Map</div>
+      <div class="heatmap-grid" id="heatmap-grid"></div>
+      <div class="heatmap-legend">
+        <span class="heatmap-legend-label">Fewer beds</span>
+        <div class="heatmap-legend-bar"></div>
+        <span class="heatmap-legend-label">More beds</span>
+        <span class="heatmap-legend-swatch"></span>
+        <span class="heatmap-legend-label">Not yet configured</span>
+      </div>
+    </div>
+
+    <div class="duty-tiles-row" id="duty-roster-tile">
+      <div class="duty-mini-tile">
+        <div class="dmt-label">MIC on Duty</div>
+        <div class="dmt-name" id="dmt-mic">Not yet assigned</div>
+      </div>
+      <div class="duty-mini-tile">
+        <div class="dmt-label">Intern on Duty</div>
+        <div class="dmt-name" id="dmt-intern">Not yet assigned</div>
+      </div>
+      <div class="duty-mini-tile">
+        <div class="dmt-label">Functions Manager / Coordinator</div>
+        <div class="dmt-name" id="dmt-coordinator">Not yet assigned</div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Boarding Houses</h2>
+    <p class="section-sub">Select a house to view its rooms and manage a festival / event allocation.</p>
+    <div class="tile-grid" id="tile-grid"></div>
+  </section>
+
+  <!-- DUTY ROSTER VIEW -->
+  <section id="duty-view" style="display:none;">
+    <button class="back-btn" id="duty-back-btn">&larr; Back to all houses</button>
+    <h2 style="font-family:var(--font-heading); color:var(--red); font-size:26px; margin:0 0 4px;">Duty Roster</h2>
+    <p class="section-sub">Officials on duty for the current festival / event — visible to all houses.</p>
+
+    <div class="duty-form-panel">
+      <div class="field">
+        <label for="duty-festival">Festival / event</label>
+        <input type="text" id="duty-festival" placeholder="e.g. Founder's Day">
+      </div>
+      <div class="field">
+        <label for="duty-mic">MIC on duty (Master in Charge)</label>
+        <input type="text" id="duty-mic" placeholder="Full name">
+      </div>
+      <div class="field">
+        <label for="duty-intern">Intern on duty</label>
+        <input type="text" id="duty-intern" placeholder="Full name">
+      </div>
+      <div class="field">
+        <label for="duty-coordinator">Functions Manager / Coordinator on duty</label>
+        <input type="text" id="duty-coordinator" placeholder="Full name">
+      </div>
+      <div class="mode-row">
+        <button class="btn btn-primary" id="duty-save-btn">Save Duty Roster</button>
+        <button class="btn btn-ghost btn-sm no-print" id="duty-print-btn">🖶 Print</button>
+      </div>
+      <div class="result-banner" id="duty-result-banner"></div>
+    </div>
+  </section>
+
+  <!-- HOUSE DETAIL VIEW -->
+  <section id="house-view">
+    <button class="back-btn" id="back-btn">&larr; Back to all houses</button>
+
+    <div class="house-header">
+      <h2 id="house-title"></h2>
+      <div class="no-print" style="display:flex; gap:8px; margin-left:auto;">
+        <button class="btn btn-ghost btn-sm" id="print-btn">🖶 Print this house</button>
+        <button class="btn btn-ghost btn-sm" id="edit-mode-btn">✎ Edit Rooms</button>
+      </div>
+    </div>
+
+    <div class="house-stat-band">
+      <div class="stat-item">
+        <div class="stat-value accent-red" id="stat-beds">0</div>
+        <div class="stat-label">Total Beds</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-rooms">0</div>
+        <div class="stat-label">Rooms</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-occupied">0</div>
+        <div class="stat-label">Currently Allocated</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value accent-green" id="stat-available">0</div>
+        <div class="stat-label">Available Now</div>
+      </div>
+    </div>
+    <div class="teams-summary-hint tight" id="closed-beds-note" style="display:none; margin-top:-12px;"></div>
+
+    <div class="result-banner warn" id="data-note-banner" style="display:none;"></div>
+
+    <div class="festival-panel">
+      <h3>New Festival Allocation</h3>
+      <div class="field" style="max-width:360px; margin-bottom:16px;">
+        <label for="festival-name">Festival / event name</label>
+        <input type="text" id="festival-name" placeholder="e.g. Founder's Day">
+      </div>
+
+      <div class="capacity-line" id="capacity-line"></div>
+
+      <div id="teams-container"></div>
+      <div class="teams-summary-hint" id="teams-summary-hint" style="display:none;"></div>
+
+      <div class="mode-row">
+        <button class="btn btn-ghost btn-sm" id="add-team-btn">+ Add another team</button>
+        <button class="btn btn-primary" id="auto-btn" style="margin-left:auto;">Populate All Teams</button>
+        <button class="btn btn-ghost" id="manual-btn">Manually Select</button>
+      </div>
+      <div class="mode-row" style="margin-top:8px;">
+        <button class="btn btn-outline-warn" id="reset-btn" style="margin-left:auto;">Clear all allocations for this house</button>
+      </div>
+
+      <div class="manual-banner" id="manual-banner">
+        <div style="width:100%;">
+          <label style="font-size:11.5px;color:var(--blue);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px;">Placing</label>
+          <select id="manual-target-select" style="width:100%;max-width:340px;padding:7px 9px;border-radius:6px;border:1px solid var(--border);font-family:var(--font-body);font-size:13px;"></select>
+        </div>
+        <span>Click <strong>Available</strong> rooms below and set bed counts. <span class="count" id="manual-count">Selected: 0</span></span>
+        <span>
+          <button class="btn btn-secondary btn-sm" id="confirm-manual-btn">Confirm allocation</button>
+          <button class="btn btn-ghost btn-sm" id="cancel-manual-btn">Cancel</button>
+        </span>
+      </div>
+      <div class="result-banner" id="result-banner"></div>
+    </div>
+
+    <div class="legend">
+      <span><i class="lg-avail"></i> Available (open beds)</span>
+      <span><i class="lg-unavail"></i> Unavailable (closed)</span>
+      <span><i class="lg-full"></i> Fully occupied</span>
+      <span><i class="lg-pending"></i> Room number to be confirmed</span>
+    </div>
+
+    <div id="blocks-container"></div>
+  </section>
+
+</main>
+
+<footer class="foot">Boarding House Allocation Dashboard &middot; data resets when this page is closed or reloaded</footer>
+
+<script>
+/* =========================================================================
+   DATA MODEL
+   Each house has an ordered list of blocks. Each block has an ordered list
+   of rooms: { id, beds, available, allocations:[{name,festival,count}] }.
+   Room "id" is the unique key used internally; "label" (if different from
+   id) is what's shown on screen — used for the two Pascoe rooms whose
+   source records were duplicated / unclear.
+   To activate one of the seven not-yet-configured houses, replace its
+   `blocks: []` with the same structure used for McCormick / Pascoe /
+   Mackenzie below.
+   ========================================================================= */
+
+function makeRooms(prefix, count, beds, startAt){
+  startAt = startAt || 1;
+  const rooms = [];
+  for(let i=startAt; i<startAt+count; i++){
+    rooms.push({ id: prefix+'-'+i, beds: beds, available:true, allocations:[] });
+  }
+  return rooms;
+}
+
+/* Evenly spreads a known bed total across a known room count, largest
+   remainder first, when individual room numbers haven't been confirmed yet. */
+function distributeBeds(totalBeds, roomCount){
+  const base = Math.floor(totalBeds / roomCount);
+  const rem = totalBeds - (base * roomCount);
+  const beds = [];
+  for(let i=0; i<roomCount; i++){
+    beds.push(i < rem ? base + 1 : base);
+  }
+  return beds;
+}
+
+/* Builds placeholder rooms for a block where only the room count and bed
+   count are known (not the actual room numbers). Flagged as `pending` so
+   the UI can clearly mark them "to be confirmed with house mother". */
+function makePendingRooms(blockPrefix, roomCount, totalBeds){
+  const bedsArr = distributeBeds(totalBeds, roomCount);
+  const rooms = [];
+  for(let i=0; i<roomCount; i++){
+    rooms.push({
+      id: blockPrefix + '-tbc-' + (i+1),
+      label: blockPrefix + ' Room ' + (i+1) + ' — number TBC',
+      beds: bedsArr[i],
+      available: true,
+      allocations: [],
+      pending: true
+    });
+  }
+  return rooms;
+}
+
+const HOUSES = {
+  mccormick: {
+    name: 'McCormick',
+    blocks: [
+      { name:'A Block', rooms: makeRooms('A',13,1) },
+      { name:'B Block', rooms: makeRooms('B',6,2) },
+      { name:'C Block', rooms: makeRooms('C',6,2) },
+      { name:'D Block', rooms: makeRooms('D',3,4) },
+      { name:'E Block', rooms: makeRooms('E',2,6) }
+    ]
+  },
+  pascoe: {
+    name: 'Pascoe',
+    note: 'C-6 (3 beds) and C-9 (4 beds) are provisional pending confirmation on tomorrow\u2019s walkthrough with the house mother \u2014 both were recorded twice in the original inspection with different counts, so these are best estimates to bring the house to its reported 66-bed total until verified on site.',
+    blocks: [
+      { name:'A Block', rooms: [
+        {id:'A-1',beds:1,available:true,allocations:[]},{id:'A-2',beds:1,available:true,allocations:[]},
+        {id:'A-3',beds:1,available:true,allocations:[]},{id:'A-4',beds:1,available:true,allocations:[]},
+        {id:'A-6',beds:1,available:true,allocations:[]},{id:'A-7',beds:1,available:true,allocations:[]},
+        {id:'A-8',beds:1,available:true,allocations:[]},{id:'A-9',beds:1,available:true,allocations:[]},
+        {id:'A-10',beds:1,available:true,allocations:[]},{id:'A-11',beds:1,available:true,allocations:[]},
+        {id:'A-12',beds:1,available:true,allocations:[]}
+      ]},
+      { name:'B Block', rooms: [
+        {id:'B-1',beds:2,available:true,allocations:[]},{id:'B-2',beds:2,available:true,allocations:[]},
+        {id:'B-3',beds:2,available:true,allocations:[]},{id:'B-4',beds:2,available:true,allocations:[]},
+        {id:'B-5',beds:2,available:true,allocations:[]},{id:'B-6',beds:1,available:true,allocations:[]},
+        {id:'B-7',beds:1,available:true,allocations:[]},{id:'B-8',beds:1,available:true,allocations:[]}
+      ]},
+      { name:'C Block', rooms: [
+        {id:'C-1',beds:1,available:true,allocations:[]},{id:'C-2',beds:1,available:true,allocations:[]},
+        {id:'C-3',beds:2,available:true,allocations:[]},{id:'C-4',beds:1,available:true,allocations:[]},
+        {id:'C-5',beds:1,available:true,allocations:[]},
+        {id:'C-6',beds:3,available:true,allocations:[],pending:true},
+        {id:'C-7',beds:1,available:true,allocations:[]},{id:'C-8',beds:1,available:true,allocations:[]},
+        {id:'C-9',beds:4,available:true,allocations:[],pending:true},
+        {id:'C-10',beds:1,available:true,allocations:[]}
+      ]},
+      { name:'D Block', rooms: makeRooms('D',3,4) },
+      { name:'E Block', rooms: makeRooms('E',2,7) }
+    ]
+  },
+  mackenzie: {
+    name: 'Mackenzie',
+    blocks: [
+      { name:'A Block', rooms: [
+        {id:'A-1',beds:1,available:true,allocations:[]},{id:'A-2',beds:1,available:true,allocations:[]},
+        {id:'A-3',beds:1,available:true,allocations:[]},{id:'A-4',beds:1,available:true,allocations:[]},
+        {id:'A-5',beds:1,available:true,allocations:[]},{id:'A-6',beds:1,available:true,allocations:[]},
+        {id:'A-7',beds:1,available:true,allocations:[]},{id:'A-8',beds:1,available:true,allocations:[]},
+        {id:'A-9',beds:1,available:true,allocations:[]},{id:'A-11',beds:1,available:true,allocations:[]},
+        {id:'A-12',beds:1,available:true,allocations:[]}
+      ]},
+      { name:'B Block', rooms: [
+        {id:'B-1',beds:3,available:true,allocations:[]},{id:'B-2',beds:2,available:true,allocations:[]},
+        {id:'B-3',beds:2,available:true,allocations:[]},{id:'B-4',beds:2,available:true,allocations:[]},
+        {id:'B-5',beds:2,available:true,allocations:[]},{id:'B-6',beds:2,available:true,allocations:[]}
+      ]},
+      { name:'C Block', rooms: makeRooms('C',6,2) },
+      { name:'D Block', rooms: [
+        {id:'D-1',beds:4,available:true,allocations:[]},{id:'D-2',beds:2,available:true,allocations:[]},
+        {id:'D-3',beds:4,available:true,allocations:[]}
+      ]},
+      { name:'E Block', rooms: makeRooms('E',2,5) },
+      { name:'S Rooms', rooms: makeRooms('S',3,1) }
+    ]
+  },
+  baines: {
+    name: 'Baines',
+    note: 'Confirmed total: 61 beds. The room originally noted as "T-3" has been relabelled D-3 (4 beds), matching the 3-room D Block pattern used in every other house. The remaining 2 beds are held as a flagged placeholder below pending exact room confirmation on your next walkthrough. The Head Boy Room is shown for completeness but explicitly excluded from all totals per the source document.',
+    blocks: [
+      { name:'A Block', rooms: [
+        {id:'A-1',beds:1,available:true,allocations:[]},
+        {id:'A-3',beds:1,available:true,allocations:[]},{id:'A-4',beds:1,available:true,allocations:[]},
+        {id:'A-5',beds:1,available:true,allocations:[]},{id:'A-6',beds:1,available:true,allocations:[]},
+        {id:'A-7',beds:1,available:true,allocations:[]},{id:'A-8',beds:1,available:true,allocations:[]},
+        {id:'A-9',beds:1,available:true,allocations:[]},{id:'A-10',beds:1,available:true,allocations:[]},
+        {id:'A-11',beds:1,available:true,allocations:[]},{id:'A-12',beds:1,available:true,allocations:[]},
+        {id:'headboy',label:'Head Boy Room (not counted)',beds:0,available:false,allocations:[],notCounted:true}
+      ]},
+      { name:'B Block', rooms: makeRooms('B',6,2) },
+      { name:'C Block', rooms: [
+        {id:'C-1',beds:1,available:true,allocations:[]},
+        {id:'C-2',beds:2,available:true,allocations:[]},{id:'C-3',beds:2,available:true,allocations:[]},
+        {id:'C-4',beds:2,available:true,allocations:[]},{id:'C-5',beds:2,available:true,allocations:[]},
+        {id:'C-6',beds:2,available:true,allocations:[]}
+      ]},
+      { name:'D Block', rooms: [
+        {id:'D-1',beds:4,available:true,allocations:[]},{id:'D-2',beds:4,available:true,allocations:[]},
+        {id:'D-3',label:'D-3 (relabelled from "T-3")',beds:4,available:true,allocations:[],pending:true}
+      ]},
+      { name:'E Block', rooms: makeRooms('E',2,6) },
+      { name:'Flagged Rooms', rooms: [
+        {id:'baines-unnum-1',label:'Room with no number',beds:1,available:true,allocations:[],pending:true},
+        {id:'baines-tbc-2',label:'Beds to be confirmed',beds:2,available:true,allocations:[],pending:true}
+      ]}
+    ]
+  },
+  ralfe: {
+    name: 'Ralfe',
+    note: 'A-11 wasn\u2019t on the original room sheet but was confirmed separately \u2014 adding it brings the bed total to exactly 60, matching the source document. Room count is 29 rather than the 28 originally stated, purely because A-11 is now included.',
+    blocks: [
+      { name:'A Block', rooms: [
+        {id:'A-1',beds:1,available:true,allocations:[]},{id:'A-2',beds:1,available:true,allocations:[]},
+        {id:'A-3',beds:1,available:true,allocations:[]},{id:'A-4',beds:1,available:true,allocations:[]},
+        {id:'A-5',beds:1,available:true,allocations:[]},{id:'A-6',beds:1,available:true,allocations:[]},
+        {id:'A-7',beds:1,available:true,allocations:[]},{id:'A-8',beds:1,available:true,allocations:[]},
+        {id:'A-9',beds:1,available:true,allocations:[]},{id:'A-10',beds:1,available:true,allocations:[]},
+        {id:'A-11',beds:1,available:true,allocations:[]},{id:'A-12',beds:1,available:true,allocations:[]}
+      ]},
+      { name:'B Block', rooms: makeRooms('B',6,2) },
+      { name:'C Block', rooms: makeRooms('C',6,2) },
+      { name:'D Block', rooms: makeRooms('D',3,4) },
+      { name:'E Block', rooms: makeRooms('E',2,6) }
+    ]
+  },
+  founders:  { name:'Founders',  blocks: [] },
+  east:      { name:'East',      blocks: [] },
+  west: {
+    name: 'West',
+    blocks: [
+      { name:'A Block', rooms: [
+        {id:'A-1',beds:1,available:true,allocations:[]},{id:'A-2',beds:1,available:true,allocations:[]},
+        {id:'A-3',beds:1,available:true,allocations:[]},{id:'A-4',beds:1,available:true,allocations:[]},
+        {id:'A-5',beds:1,available:true,allocations:[]},{id:'A-6',beds:1,available:true,allocations:[]},
+        {id:'A-7',beds:1,available:true,allocations:[]},{id:'A-8',beds:1,available:true,allocations:[]},
+        {id:'A-9',beds:1,available:true,allocations:[]},{id:'A-10',beds:2,available:true,allocations:[]},
+        {id:'A-11',beds:1,available:true,allocations:[]},{id:'A-12',beds:1,available:true,allocations:[]}
+      ]},
+      { name:'B Block', rooms: makeRooms('B',4,2) },
+      { name:'C Block', rooms: [
+        {id:'C-1',beds:2,available:true,allocations:[]},{id:'C-2',beds:2,available:true,allocations:[]},
+        {id:'C-3',beds:2,available:true,allocations:[]},{id:'C-4',beds:3,available:true,allocations:[]},
+        {id:'C-5',beds:3,available:true,allocations:[]}
+      ]},
+      { name:'D Block', rooms: makeRooms('D',3,4) },
+      { name:'E Block', rooms: makeRooms('E',2,6) },
+      { name:'S Rooms', rooms: [
+        {id:'S-1',beds:1,available:true,allocations:[]},
+        {id:'S-2',beds:2,available:true,allocations:[]},
+        {id:'S-4',beds:1,available:true,allocations:[]}
+      ]}
+    ]
+  },
+  farfield: {
+    name: 'Farfield',
+    note: 'Two rooms in the inspection report had no room number recorded. They\u2019re listed below as "no number" and must be confirmed with the house mother before being relied on for a real allocation.',
+    blocks: [
+      { name:'A Block', rooms: makeRooms('A',13,1) },
+      { name:'B Block', rooms: makeRooms('B',6,2) },
+      { name:'C Block', rooms: [
+        {id:'C-1',beds:2,available:true,allocations:[]},{id:'C-2',beds:2,available:true,allocations:[]},
+        {id:'C-3',beds:2,available:true,allocations:[]},{id:'C-4',beds:2,available:true,allocations:[]},
+        {id:'C-5',beds:2,available:true,allocations:[]},{id:'C-6',beds:2,available:true,allocations:[]},
+        {id:'C-7',beds:3,available:true,allocations:[]}
+      ]},
+      { name:'D Block', rooms: makeRooms('D',3,4) },
+      { name:'E Block', rooms: makeRooms('E',2,6) },
+      { name:'Unnumbered Rooms', rooms: [
+        {id:'unnum-1',label:'Room with no number (1)',beds:1,available:true,allocations:[],pending:true},
+        {id:'unnum-2',label:'Room with no number (2)',beds:1,available:true,allocations:[],pending:true}
+      ]}
+    ]
+  },
+  tatham:    { name:'Tatham',    blocks: [] }
+};
+
+const HOUSE_ORDER = ['mccormick','pascoe','mackenzie','baines','ralfe','founders','east','west','farfield','tatham'];
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let currentHouseKey = null;
+let manualMode = false;
+let manualSelections = {}; // roomId -> count staged in manual mode
+let manualTarget = null;   // { key, label, festival, remaining } — the team/role currently being placed manually
+let editMode = false;
+let teams = [];            // [{ id, name, students, coaches, managers }] — up to 3 per festival
+let dutyRoster = { festival:'', mic:'', intern:'', coordinator:'' };
+
+function makeTeam(){
+  return { id: 'team-' + Date.now() + '-' + Math.floor(Math.random()*1000), name:'', students:0, coaches:0, managers:0 };
+}
+
+/* =========================================================================
+   HELPERS
+   ========================================================================= */
+function houseTotals(house){
+  let beds=0, rooms=0, occupied=0, available=0, closed=0;
+  house.blocks.forEach(b => b.rooms.forEach(r => {
+    if(r.notCounted) return; // shown for completeness only, never part of any total
+    beds += r.beds; rooms += 1;
+    const occ = r.allocations.reduce((s,a)=>s+a.count,0);
+    occupied += occ;
+    const spare = r.beds - occ;
+    if(r.available){
+      available += spare;      // open beds that are genuinely bookable right now
+    } else {
+      closed += spare;         // beds sitting empty but shut off from booking
+    }
+  }));
+  return {beds, rooms, occupied, available, closed};
+}
+
+function roomOccupied(room){
+  return room.allocations.reduce((s,a)=>s+a.count,0);
+}
+function roomRemaining(room){
+  return room.beds - roomOccupied(room);
+}
+
+/* A room is "open" for a given key (one team+role, e.g. "team-123:coach")
+   only if it's available, has space, and every existing occupant in it
+   already belongs to that same key. This is the rule that stops two
+   different teams (or a team's coach and its students) from ever sharing
+   a room. */
+function isRoomOpenForKey(room, key){
+  if(!room.available) return false;
+  if(roomRemaining(room) <= 0) return false;
+  if(room.allocations.length === 0) return true;
+  return room.allocations.every(a => a.key === key);
+}
+
+/* Places `countNeeded` people under one key, walking every room in the
+   house in block order. When preferSingles is true (coaches / managers)
+   true single-bed rooms are tried first so they get a private room of
+   their own; only if none are left does it fall back to a shared-capacity
+   room (and that gets flagged back to the caller). */
+function placeGroup(house, key, label, festival, countNeeded, preferSingles){
+  let remaining = countNeeded;
+  const placed = [];
+  let usedSharedRoom = false;
+  if(remaining <= 0) return { placed, remaining: 0, usedSharedRoom };
+
+  const allRooms = [];
+  house.blocks.forEach(block => block.rooms.forEach(room => allRooms.push(room)));
+
+  let orderedRooms = allRooms;
+  if(preferSingles){
+    const singles = allRooms.filter(r => r.beds === 1);
+    const others = allRooms.filter(r => r.beds !== 1);
+    orderedRooms = singles.concat(others);
+  }
+
+  for(const room of orderedRooms){
+    if(remaining <= 0) break;
+    if(!isRoomOpenForKey(room, key)) continue;
+    const cap = roomRemaining(room);
+    if(cap <= 0) continue;
+    const take = Math.min(cap, remaining);
+    room.allocations.push({ name: label, festival, count: take, key });
+    placed.push({ room: room.label || room.id, count: take, beds: room.beds });
+    if(preferSingles && room.beds !== 1) usedSharedRoom = true;
+    remaining -= take;
+  }
+  return { placed, remaining, usedSharedRoom };
+}
+
+/* Runs one team's coach(es), then manager(s), then students, in that
+   order — so private rooms are locked in before the student sweep ever
+   starts. */
+function populateTeam(house, team, festival){
+  const label = (team.name && team.name.trim()) || 'Unnamed team';
+  const result = { teamName: label, coach: null, manager: null, students: null };
+
+  if(team.coaches > 0){
+    result.coach = placeGroup(house, team.id+':coach', label+' — Coach', festival, team.coaches, true);
+  }
+  if(team.managers > 0){
+    result.manager = placeGroup(house, team.id+':manager', label+' — Manager', festival, team.managers, true);
+  }
+  if(team.students > 0){
+    result.students = placeGroup(house, team.id+':students', label+' — Students', festival, team.students, false);
+  }
+  return result;
+}
+
+/* Checks every house for allocations whose name starts with this team
+   name, so re-using a team name (by accident or on purpose) gets flagged
+   before it silently books a second block of rooms for the same group. */
+function findExistingTeamAllocations(teamName){
+  const target = teamName.trim().toLowerCase();
+  if(!target) return [];
+  const matches = [];
+  HOUSE_ORDER.forEach(key => {
+    const house = HOUSES[key];
+    house.blocks.forEach(block => {
+      block.rooms.forEach(room => {
+        room.allocations.forEach(a => {
+          if(a.name.trim().toLowerCase().startsWith(target)){
+            matches.push({ house: house.name, room: room.label || room.id, count: a.count, festival: a.festival, label: a.name });
+          }
+        });
+      });
+    });
+  });
+  return matches;
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* =========================================================================
+   RENDER: DASHBOARD
+   ========================================================================= */
+function renderDashboard(){
+  renderDutyRosterSummary();
+  renderHeatmap();
+  const grid = document.getElementById('tile-grid');
+  grid.innerHTML = '';
+  HOUSE_ORDER.forEach(key => {
+    const house = HOUSES[key];
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.tabIndex = 0;
+    tile.setAttribute('role','button');
+    tile.innerHTML = `
+      <div class="stripe"></div>
+      <h3>${escapeHtml(house.name)}</h3>
+    `;
+    tile.addEventListener('click', () => openHouse(key));
+    tile.addEventListener('keypress', (e) => { if(e.key === 'Enter') openHouse(key); });
+    grid.appendChild(tile);
+  });
+}
+
+/* Interpolates between two hex colours by t (0..1). */
+function lerpColor(hex1, hex2, t){
+  const c1 = [parseInt(hex1.slice(1,3),16), parseInt(hex1.slice(3,5),16), parseInt(hex1.slice(5,7),16)];
+  const c2 = [parseInt(hex2.slice(1,3),16), parseInt(hex2.slice(3,5),16), parseInt(hex2.slice(5,7),16)];
+  const r = Math.round(c1[0] + (c2[0]-c1[0])*t);
+  const g = Math.round(c1[1] + (c2[1]-c1[1])*t);
+  const b = Math.round(c1[2] + (c2[2]-c1[2])*t);
+  return {rgb:`rgb(${r},${g},${b})`, lum:(0.299*r+0.587*g+0.114*b)};
+}
+
+/* Three-stop heat scale: bright blue (fewest beds) → light periwinkle (mid)
+   → deep red (most beds) — brighter/deeper throughout, no washed-out white. */
+function heatColor(value, min, max){
+  if(max === min) return lerpColor('#4A63C4', '#B7C4EE', 0.5);
+  const t = (value - min) / (max - min);
+  if(t <= 0.5) return lerpColor('#4A63C4', '#B7C4EE', t/0.5);
+  return lerpColor('#B7C4EE', '#B92E32', (t-0.5)/0.5);
+}
+
+function renderHeatmap(){
+  const el = document.getElementById('heatmap-grid');
+  const configured = HOUSE_ORDER
+    .map(key => ({ key, house: HOUSES[key], beds: houseTotals(HOUSES[key]).beds }))
+    .filter(h => h.beds > 0);
+  const min = configured.length ? Math.min(...configured.map(h=>h.beds)) : 0;
+  const max = configured.length ? Math.max(...configured.map(h=>h.beds)) : 0;
+
+  el.innerHTML = HOUSE_ORDER.map(key => {
+    const house = HOUSES[key];
+    const beds = houseTotals(house).beds;
+    if(beds === 0){
+      return `<div class="heatmap-cell" style="background:#E4E6ED;">
+          <div class="hm-name" style="color:var(--muted);">${escapeHtml(house.name)}</div>
+          <div class="hm-beds" style="color:var(--unavailable);">0</div>
+          <div class="hm-sub" style="color:var(--muted);">not configured</div>
+        </div>`;
+    }
+    const c = heatColor(beds, min, max);
+    const textColor = c.lum < 130 ? '#fff' : 'var(--ink)';
+    return `<div class="heatmap-cell" style="background:${c.rgb};">
+        <div class="hm-name" style="color:${textColor};">${escapeHtml(house.name)}</div>
+        <div class="hm-beds" style="color:${textColor};">${beds}</div>
+        <div class="hm-sub" style="color:${textColor};">beds</div>
+      </div>`;
+  }).join('');
+}
+
+/* =========================================================================
+   RENDER: HOUSE DETAIL
+   ========================================================================= */
+function openHouse(key){
+  currentHouseKey = key;
+  manualMode = false;
+  manualSelections = {};
+  manualTarget = null;
+  editMode = false;
+  teams = [makeTeam()];
+  document.getElementById('dashboard-view').style.display = 'none';
+  document.getElementById('house-view').style.display = 'block';
+  document.getElementById('festival-name').value = '';
+  hideResultBanner();
+  renderHouseView();
+  window.scrollTo(0,0);
+}
+
+function closeHouse(){
+  currentHouseKey = null;
+  document.getElementById('house-view').style.display = 'none';
+  document.getElementById('dashboard-view').style.display = 'block';
+  renderDashboard();
+}
+
+/* =========================================================================
+   DUTY ROSTER — MIC / Intern / Functions Manager on duty, campus-wide
+   (not tied to a single boarding house)
+   ========================================================================= */
+function setDutyName(elId, name){
+  const el = document.getElementById(elId);
+  const filled = name && name.trim() !== '';
+  el.textContent = filled ? name : 'Not yet assigned';
+  el.className = 'dmt-name' + (filled ? '' : ' unassigned');
+}
+
+function renderDutyRosterSummary(){
+  setDutyName('dmt-mic', dutyRoster.mic);
+  setDutyName('dmt-intern', dutyRoster.intern);
+  setDutyName('dmt-coordinator', dutyRoster.coordinator);
+}
+
+function openDutyRoster(){
+  document.getElementById('dashboard-view').style.display = 'none';
+  document.getElementById('duty-view').style.display = 'block';
+  document.getElementById('duty-festival').value = dutyRoster.festival;
+  document.getElementById('duty-mic').value = dutyRoster.mic;
+  document.getElementById('duty-intern').value = dutyRoster.intern;
+  document.getElementById('duty-coordinator').value = dutyRoster.coordinator;
+  document.getElementById('duty-result-banner').className = 'result-banner';
+  document.getElementById('duty-result-banner').innerHTML = '';
+  window.scrollTo(0,0);
+}
+
+function closeDutyRoster(){
+  document.getElementById('duty-view').style.display = 'none';
+  document.getElementById('dashboard-view').style.display = 'block';
+  renderDashboard();
+}
+
+document.getElementById('duty-roster-tile').addEventListener('click', openDutyRoster);
+document.getElementById('duty-back-btn').addEventListener('click', closeDutyRoster);
+document.getElementById('duty-print-btn').addEventListener('click', () => window.print());
+
+document.getElementById('duty-save-btn').addEventListener('click', () => {
+  dutyRoster = {
+    festival: document.getElementById('duty-festival').value.trim(),
+    mic: document.getElementById('duty-mic').value.trim(),
+    intern: document.getElementById('duty-intern').value.trim(),
+    coordinator: document.getElementById('duty-coordinator').value.trim()
+  };
+  const banner = document.getElementById('duty-result-banner');
+  banner.className = 'result-banner success';
+  banner.textContent = 'Duty roster saved. Remember to click Save Progress in the top bar to keep this after closing the page.';
+});
+
+function renderHouseView(){
+  const house = HOUSES[currentHouseKey];
+  const totals = houseTotals(house);
+  document.getElementById('house-title').textContent = house.name;
+  document.getElementById('stat-beds').textContent = totals.beds;
+  document.getElementById('stat-rooms').textContent = totals.rooms;
+  document.getElementById('stat-occupied').textContent = totals.occupied;
+  document.getElementById('stat-available').textContent = totals.available;
+
+  const noteBanner2 = document.getElementById('closed-beds-note');
+  if(totals.closed > 0){
+    noteBanner2.style.display = 'block';
+    noteBanner2.textContent = `${totals.closed} bed${totals.closed===1?'':'s'} currently marked unavailable and excluded from "Available Now" (${totals.beds} total = ${totals.occupied} occupied + ${totals.available} available + ${totals.closed} closed).`;
+  } else {
+    noteBanner2.style.display = 'none';
+  }
+
+  const noteBanner = document.getElementById('data-note-banner');
+  if(house.note){
+    noteBanner.style.display = 'block';
+    noteBanner.innerHTML = '<strong>Data note:</strong> ' + escapeHtml(house.note);
+  } else {
+    noteBanner.style.display = 'none';
+    noteBanner.innerHTML = '';
+  }
+
+  updateManualBanner();
+  updateCapacityLine();
+  renderTeams();
+  updateTeamsSummaryHint();
+
+  const editBtn = document.getElementById('edit-mode-btn');
+  editBtn.textContent = editMode ? '✓ Done Editing' : '✎ Edit Rooms';
+  editBtn.className = editMode ? 'btn btn-secondary btn-sm' : 'btn btn-ghost btn-sm';
+
+  const container = document.getElementById('blocks-container');
+  container.innerHTML = '';
+
+  if(house.blocks.length === 0){
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'empty-house';
+    emptyEl.innerHTML = `<strong>No rooms configured for ${escapeHtml(house.name)} yet</strong>
+        Add this house's blocks and rooms below, or send me the room list to load it in for you.`;
+    if(editMode){
+      const addBlockBtn = document.createElement('button');
+      addBlockBtn.className = 'add-block-btn';
+      addBlockBtn.textContent = '+ Add first block';
+      addBlockBtn.addEventListener('click', () => addBlock(house));
+      emptyEl.appendChild(document.createElement('br'));
+      emptyEl.appendChild(addBlockBtn);
+    }
+    container.appendChild(emptyEl);
+    return;
+  }
+
+  house.blocks.forEach((block, bIdx) => {
+    const blockEl = document.createElement('div');
+    blockEl.className = 'block';
+
+    const header = document.createElement('div');
+    header.className = 'block-header';
+    header.innerHTML = `
+      <h4>${escapeHtml(block.name)}</h4>
+      <div class="block-actions">
+        <button data-block="${bIdx}" data-set="true">Mark all available</button>
+        <button data-block="${bIdx}" data-set="false">Mark all unavailable</button>
+      </div>
+    `;
+    header.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const setTo = btn.getAttribute('data-set') === 'true';
+        block.rooms.forEach(r => { r.available = setTo; });
+        renderHouseView();
+      });
+    });
+    blockEl.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'room-grid';
+    block.rooms.forEach(room => {
+      grid.appendChild(renderRoomCard(room, block));
+    });
+    blockEl.appendChild(grid);
+
+    if(editMode){
+      const addRoomBtn = document.createElement('button');
+      addRoomBtn.className = 'add-room-btn';
+      addRoomBtn.textContent = '+ Add room to ' + block.name;
+      addRoomBtn.addEventListener('click', () => addRoom(block));
+      blockEl.appendChild(addRoomBtn);
+    }
+
+    container.appendChild(blockEl);
+  });
+
+  if(editMode){
+    const addBlockBtn = document.createElement('button');
+    addBlockBtn.className = 'add-block-btn';
+    addBlockBtn.textContent = '+ Add another block';
+    addBlockBtn.addEventListener('click', () => addBlock(house));
+    container.appendChild(addBlockBtn);
+  }
+}
+
+function renderRoomCard(room, block){
+  const occ = roomOccupied(room);
+  const remaining = roomRemaining(room);
+  const card = document.createElement('div');
+  let cls = 'room-card';
+  if(room.notCounted) cls += ' not-counted';
+  else if(!room.available) cls += ' unavailable';
+  else if(remaining <= 0) cls += ' full';
+  else cls += ' available';
+  if(room.pending) cls += ' pending';
+  card.className = cls;
+
+  const label = room.label || room.id;
+  const pillLabel = room.available ? 'Available' : 'Unavailable';
+  const pillClass = room.available ? 'avail' : 'unavail';
+
+  const manualEligible = manualMode && manualTarget && isRoomOpenForKey(room, manualTarget.key);
+
+  card.innerHTML = `
+    <div class="room-id">${escapeHtml(label)}</div>
+    <div class="beds-line">${room.beds} bed${room.beds===1?'':'s'} &middot; ${occ}/${room.beds} occupied</div>
+    ${room.pending ? '<div class="pending-flag">To be confirmed with house mother</div>' : ''}
+    ${room.notCounted ? '<div class="not-counted-flag">Not counted in totals</div>' : ''}
+    ${room.notCounted ? '' : `<button class="status-pill ${pillClass}" data-toggle-room="${room.id}" style="margin-top:6px;">${pillLabel}</button>`}
+    <div class="alloc-tags"></div>
+    <div class="manual-stepper ${manualEligible ? 'active':''}" data-stepper="${room.id}">
+      <button data-step="-1" data-room="${room.id}">–</button>
+      <input type="number" min="0" max="${remaining}" value="${manualSelections[room.id]||0}" data-input-room="${room.id}">
+      <button data-step="1" data-room="${room.id}">+</button>
+      <span style="font-size:11px;color:var(--muted);">/ ${remaining} left</span>
+    </div>
+    ${editMode ? `<div class="room-edit-row">
+        <button class="edit-btn" data-edit-room="${room.id}">Edit</button>
+        <button class="delete-btn" data-delete-room="${room.id}">Delete</button>
+      </div>` : ''}
+  `;
+
+  const tagsWrap = card.querySelector('.alloc-tags');
+  room.allocations.forEach((a, idx) => {
+    const tag = document.createElement('div');
+    tag.className = 'alloc-tag';
+    tag.innerHTML = `<span>${escapeHtml(a.name)} &middot; ${escapeHtml(a.festival)} (${a.count})</span>`;
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove this allocation';
+    removeBtn.addEventListener('click', () => {
+      room.allocations.splice(idx,1);
+      renderHouseView();
+    });
+    tag.appendChild(removeBtn);
+    tagsWrap.appendChild(tag);
+  });
+
+  const toggleBtn = card.querySelector('[data-toggle-room]');
+  if(toggleBtn){
+    toggleBtn.addEventListener('click', () => {
+      room.available = !room.available;
+      renderHouseView();
+    });
+  }
+
+  if(manualEligible){
+    card.querySelectorAll('[data-step]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const delta = parseInt(btn.getAttribute('data-step'),10);
+        const rid = btn.getAttribute('data-room');
+        const cap = roomRemaining(room);
+        let val = (manualSelections[rid]||0) + delta;
+        if(val<0) val=0;
+        if(val>cap) val=cap;
+        manualSelections[rid] = val;
+        renderHouseView();
+      });
+    });
+    const input = card.querySelector('[data-input-room]');
+    if(input){
+      input.addEventListener('change', () => {
+        let val = parseInt(input.value,10);
+        if(isNaN(val) || val<0) val=0;
+        const cap = roomRemaining(room);
+        if(val>cap) val=cap;
+        manualSelections[room.id] = val;
+        renderHouseView();
+      });
+    }
+  }
+
+  if(editMode){
+    card.querySelector('[data-edit-room]').addEventListener('click', () => editRoom(room));
+    card.querySelector('[data-delete-room]').addEventListener('click', () => deleteRoom(block, room));
+  }
+
+  return card;
+}
+
+/* =========================================================================
+   ROOM / BLOCK EDITING (self-service data entry — no code changes needed)
+   ========================================================================= */
+function editRoom(room){
+  const currentLabel = room.label || room.id;
+  const newLabel = prompt('Room number / label:', currentLabel);
+  if(newLabel === null) return; // cancelled
+  const trimmed = newLabel.trim();
+  if(trimmed === '') { alert('Room label cannot be empty.'); return; }
+
+  const newBedsRaw = prompt('Number of beds in this room:', room.beds);
+  if(newBedsRaw === null) return; // cancelled
+  const newBeds = parseInt(newBedsRaw, 10);
+  if(isNaN(newBeds) || newBeds <= 0){ alert('Enter a whole number greater than 0 for beds.'); return; }
+  const currentlyOccupied = roomOccupied(room);
+  if(newBeds < currentlyOccupied){
+    alert(`This room currently has ${currentlyOccupied} beds allocated — you can't set capacity below that. Remove an allocation first.`);
+    return;
+  }
+
+  room.label = trimmed;
+  room.beds = newBeds;
+  renderHouseView();
+}
+
+function deleteRoom(block, room){
+  const occ = roomOccupied(room);
+  if(occ > 0){
+    alert(`This room has ${occ} bed(s) currently allocated. Remove the allocation(s) before deleting the room.`);
+    return;
+  }
+  if(!confirm(`Delete room "${room.label || room.id}" from ${block.name}? This can't be undone.`)) return;
+  const idx = block.rooms.indexOf(room);
+  if(idx > -1) block.rooms.splice(idx, 1);
+  renderHouseView();
+}
+
+function addRoom(block){
+  const label = prompt('New room number / label (e.g. A-14):');
+  if(label === null || label.trim() === '') return;
+  const bedsRaw = prompt('Number of beds in this room:', '1');
+  if(bedsRaw === null) return;
+  const beds = parseInt(bedsRaw, 10);
+  if(isNaN(beds) || beds <= 0){ alert('Enter a whole number greater than 0 for beds.'); return; }
+  const trimmed = label.trim();
+  block.rooms.push({
+    id: 'custom-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+    label: trimmed,
+    beds: beds,
+    available: true,
+    allocations: []
+  });
+  renderHouseView();
+}
+
+function addBlock(house){
+  const name = prompt('New block name (e.g. "F Block" or "Cottage Rooms"):');
+  if(name === null || name.trim() === '') return;
+  house.blocks.push({ name: name.trim(), rooms: [] });
+  renderHouseView();
+}
+
+/* =========================================================================
+   TEAMS PANEL — rendering + summary hint + capacity line
+   ========================================================================= */
+function updateCapacityLine(){
+  const house = HOUSES[currentHouseKey];
+  const t = houseTotals(house);
+  document.getElementById('capacity-line').innerHTML =
+    `<strong>${t.available}</strong> beds still available in ${escapeHtml(house.name)} &nbsp;&middot;&nbsp; ${t.occupied} of ${t.beds} occupied${t.closed ? ' &nbsp;&middot;&nbsp; ' + t.closed + ' closed' : ''}`;
+}
+
+function renderTeams(){
+  const container = document.getElementById('teams-container');
+  container.innerHTML = '';
+  teams.forEach((team, idx) => {
+    const row = document.createElement('div');
+    row.className = 'team-row';
+    const subtotal = (team.students||0) + (team.coaches||0) + (team.managers||0);
+    row.innerHTML = `
+      <div class="team-row-header">
+        <strong>Team ${idx+1}</strong>
+        ${teams.length > 1 ? `<button class="team-remove-btn" data-remove-team="${team.id}">&times; Remove team</button>` : ''}
+      </div>
+      <div class="team-fields">
+        <div class="field">
+          <label>Team name</label>
+          <input type="text" data-team-field="name" data-team-id="${team.id}" value="${escapeHtml(team.name)}" placeholder="e.g. Hilton College U15A">
+        </div>
+        <div class="field">
+          <label>Students</label>
+          <input type="number" min="0" data-team-field="students" data-team-id="${team.id}" value="${team.students}">
+        </div>
+        <div class="field">
+          <label>Coach(es)</label>
+          <input type="number" min="0" data-team-field="coaches" data-team-id="${team.id}" value="${team.coaches}">
+        </div>
+        <div class="field">
+          <label>Manager(s)</label>
+          <input type="number" min="0" data-team-field="managers" data-team-id="${team.id}" value="${team.managers}">
+        </div>
+        <div class="team-subtotal">Team total: <strong data-team-subtotal="${team.id}">${subtotal}</strong> guest${subtotal===1?'':'s'} (coach/manager get their own single room; students share dorm rooms as a group)</div>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll('[data-team-field]').forEach(input => {
+    input.addEventListener('input', () => {
+      const id = input.getAttribute('data-team-id');
+      const field = input.getAttribute('data-team-field');
+      const team = teams.find(t => t.id === id);
+      if(!team) return;
+      team[field] = (field === 'name') ? input.value : Math.max(0, parseInt(input.value,10) || 0);
+      const subtotal = (team.students||0) + (team.coaches||0) + (team.managers||0);
+      const subtotalEl = container.querySelector(`[data-team-subtotal="${id}"]`);
+      if(subtotalEl) subtotalEl.textContent = subtotal;
+      updateTeamsSummaryHint();
+    });
+  });
+
+  container.querySelectorAll('[data-remove-team]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-remove-team');
+      teams = teams.filter(t => t.id !== id);
+      if(teams.length === 0) teams = [makeTeam()];
+      renderTeams();
+      updateTeamsSummaryHint();
+    });
+  });
+
+  document.getElementById('add-team-btn').disabled = teams.length >= 3;
+  document.getElementById('add-team-btn').textContent = teams.length >= 3 ? 'Maximum 3 teams per festival' : '+ Add another team';
+}
+
+function updateTeamsSummaryHint(){
+  const house = HOUSES[currentHouseKey];
+  const t = houseTotals(house);
+  const remaining = t.available;
+  const totalRequested = teams.reduce((s,team) => s + (team.students||0) + (team.coaches||0) + (team.managers||0), 0);
+  const hint = document.getElementById('teams-summary-hint');
+  if(totalRequested === 0){
+    hint.style.display = 'none';
+    return;
+  }
+  hint.style.display = 'block';
+  if(totalRequested <= remaining){
+    hint.className = 'teams-summary-hint fits';
+    hint.textContent = `${totalRequested} guests entered across ${teams.length} team${teams.length===1?'':'s'} — fits within the ${remaining} beds currently available.`;
+  } else {
+    hint.className = 'teams-summary-hint tight';
+    hint.textContent = `${totalRequested} guests entered across ${teams.length} team${teams.length===1?'':'s'}, but only ${remaining} beds are currently available here — some guests won't fit. Consider another house for the extra team.`;
+  }
+}
+
+document.getElementById('add-team-btn').addEventListener('click', () => {
+  if(teams.length >= 3) return;
+  teams.push(makeTeam());
+  renderTeams();
+  updateTeamsSummaryHint();
+});
+
+/* =========================================================================
+   ALLOCATION LOGIC
+   ========================================================================= */
+function showResultBanner(type, html){
+  const el = document.getElementById('result-banner');
+  el.className = 'result-banner ' + type;
+  el.innerHTML = html;
+}
+function hideResultBanner(){
+  const el = document.getElementById('result-banner');
+  el.className = 'result-banner';
+  el.innerHTML = '';
+}
+
+function renderTeamResultLine(r){
+  const parts = [];
+  if(r.coach){
+    if(r.coach.placed.length){
+      const roomList = r.coach.placed.map(p => escapeHtml(p.room)).join(', ');
+      parts.push(`Coach → ${roomList}${r.coach.usedSharedRoom ? ' (no single room free — shared-capacity room used)' : ''}`);
+    }
+    if(r.coach.remaining > 0) parts.push(`<strong>${r.coach.remaining} coach seat(s) could not be placed</strong>`);
+  }
+  if(r.manager){
+    if(r.manager.placed.length){
+      const roomList = r.manager.placed.map(p => escapeHtml(p.room)).join(', ');
+      parts.push(`Manager → ${roomList}${r.manager.usedSharedRoom ? ' (no single room free — shared-capacity room used)' : ''}`);
+    }
+    if(r.manager.remaining > 0) parts.push(`<strong>${r.manager.remaining} manager seat(s) could not be placed</strong>`);
+  }
+  if(r.students){
+    if(r.students.placed.length){
+      const roomList = r.students.placed.map(p => `${escapeHtml(p.room)} (${p.count})`).join(', ');
+      parts.push(`Students → ${roomList}`);
+    }
+    if(r.students.remaining > 0) parts.push(`<strong>${r.students.remaining} student(s) could not be placed</strong>`);
+  }
+  return `<div style="margin-bottom:8px;"><strong>${escapeHtml(r.teamName)}</strong>: ${parts.join(' &middot; ') || 'nothing entered'}</div>`;
+}
+
+document.getElementById('auto-btn').addEventListener('click', () => {
+  manualMode = false;
+  manualSelections = {};
+  manualTarget = null;
+
+  const house = HOUSES[currentHouseKey];
+  const festival = document.getElementById('festival-name').value.trim() || 'Unnamed festival';
+  const activeTeams = teams.filter(t => (t.students||0)+(t.coaches||0)+(t.managers||0) > 0);
+
+  if(activeTeams.length === 0){
+    showResultBanner('warn', 'Enter at least one team with students, a coach, or a manager before populating.');
+    return;
+  }
+
+  for(const team of activeTeams){
+    const teamLabel = (team.name && team.name.trim()) || 'Unnamed team';
+    const dupes = findExistingTeamAllocations(teamLabel);
+    if(dupes.length > 0){
+      const dupeList = dupes.map(d => `${d.house} — ${d.room} (${d.label}, ${d.count})`).join('\n');
+      if(!confirm(`"${teamLabel}" already has room bookings on record:\n\n${dupeList}\n\nContinue and populate this team anyway?`)) return;
+    }
+  }
+
+  let anyShortfall = false;
+  let summaryHtml = '';
+  activeTeams.forEach(team => {
+    const r = populateTeam(house, team, festival);
+    summaryHtml += renderTeamResultLine(r);
+    if((r.coach && r.coach.remaining>0) || (r.manager && r.manager.remaining>0) || (r.students && r.students.remaining>0)){
+      anyShortfall = true;
+    }
+  });
+
+  teams = [makeTeam()];
+  renderHouseView();
+  showResultBanner(anyShortfall ? 'warn' : 'success', summaryHtml);
+});
+
+/* Builds the list of team/role targets still needing beds in this house,
+   for the Manually Select dropdown. */
+function buildManualTargetOptions(){
+  const house = HOUSES[currentHouseKey];
+  const festival = document.getElementById('festival-name').value.trim() || 'Unnamed festival';
+  const options = [];
+  teams.forEach((team, idx) => {
+    const label = (team.name && team.name.trim()) || `Team ${idx+1}`;
+    [['coach', team.coaches, 'Coach'], ['manager', team.managers, 'Manager'], ['students', team.students, 'Students']].forEach(([role, requested, roleLabel]) => {
+      if(!requested || requested <= 0) return;
+      const key = team.id + ':' + role;
+      let alreadyPlaced = 0;
+      house.blocks.forEach(block => block.rooms.forEach(room => {
+        room.allocations.forEach(a => { if(a.key === key) alreadyPlaced += a.count; });
+      }));
+      const remaining = requested - alreadyPlaced;
+      if(remaining > 0){
+        options.push({ key, label: `${label} — ${roleLabel}`, festival, remaining, roleLabel });
+      }
+    });
+  });
+  return options;
+}
+
+document.getElementById('manual-btn').addEventListener('click', () => {
+  const options = buildManualTargetOptions();
+  if(options.length === 0){
+    showResultBanner('warn', 'Nothing left to place manually — enter a team with students, a coach, or a manager above first (or everything entered is already allocated).');
+    return;
+  }
+  manualMode = true;
+  manualSelections = {};
+  manualTarget = options[0];
+  hideResultBanner();
+  renderHouseView();
+
+  const select = document.getElementById('manual-target-select');
+  select.innerHTML = options.map((o,i) => `<option value="${i}">${escapeHtml(o.label)} (${o.remaining} left)</option>`).join('');
+  select.onchange = () => {
+    manualTarget = options[parseInt(select.value,10)];
+    manualSelections = {};
+    renderHouseView();
+  };
+});
+
+document.getElementById('cancel-manual-btn').addEventListener('click', () => {
+  manualMode = false;
+  manualSelections = {};
+  manualTarget = null;
+  hideResultBanner();
+  renderHouseView();
+});
+
+document.getElementById('confirm-manual-btn').addEventListener('click', () => {
+  if(!manualTarget){
+    showResultBanner('warn', 'Choose who you\'re placing from the dropdown first.');
+    return;
+  }
+  const house = HOUSES[currentHouseKey];
+  let selectedTotal = 0;
+  Object.keys(manualSelections).forEach(rid => { selectedTotal += (manualSelections[rid]||0); });
+
+  if(selectedTotal <= 0){
+    showResultBanner('warn', 'Select at least one bed in a room before confirming.');
+    return;
+  }
+
+  const placed = [];
+  house.blocks.forEach(block => {
+    block.rooms.forEach(room => {
+      const sel = manualSelections[room.id];
+      if(sel && sel > 0){
+        room.allocations.push({ name: manualTarget.label, festival: manualTarget.festival, count: sel, key: manualTarget.key });
+        placed.push({ id: room.label || room.id, take: sel });
+      }
+    });
+  });
+
+  const targetLabel = manualTarget.label;
+  const targetRemaining = manualTarget.remaining;
+  manualMode = false;
+  manualSelections = {};
+  manualTarget = null;
+  renderHouseView();
+
+  const placedList = placed.map(p => `${escapeHtml(p.id)} (${p.take})`).join(', ');
+  let msg = `Manually allocated ${selectedTotal} bed${selectedTotal===1?'':'s'} for "${escapeHtml(targetLabel)}" to: ${placedList}.`;
+  if(selectedTotal < targetRemaining){
+    showResultBanner('warn', msg + ` Note: this is ${targetRemaining - selectedTotal} short of the ${targetRemaining} still needed for this group.`);
+  } else {
+    showResultBanner('success', msg);
+  }
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  const house = HOUSES[currentHouseKey];
+  if(!confirm(`Clear every allocation currently recorded for ${house.name}? Room available/unavailable status will be kept.`)) return;
+  house.blocks.forEach(block => block.rooms.forEach(room => { room.allocations = []; }));
+  manualMode = false;
+  manualSelections = {};
+  manualTarget = null;
+  hideResultBanner();
+  renderHouseView();
+});
+
+function updateManualBanner(){
+  const banner = document.getElementById('manual-banner');
+  if(manualMode){
+    banner.classList.add('active');
+    let total = 0;
+    Object.keys(manualSelections).forEach(rid => { total += (manualSelections[rid]||0); });
+    document.getElementById('manual-count').textContent = 'Selected: ' + total;
+  } else {
+    banner.classList.remove('active');
+  }
+}
+
+document.getElementById('back-btn').addEventListener('click', closeHouse);
+
+document.getElementById('edit-mode-btn').addEventListener('click', () => {
+  editMode = !editMode;
+  manualMode = false;
+  manualSelections = {};
+  renderHouseView();
+});
+
+document.getElementById('print-btn').addEventListener('click', () => {
+  window.print();
+});
+
+/* =========================================================================
+   GLOBAL SEARCH (across every house — guest names and room numbers)
+   ========================================================================= */
+function runGlobalSearch(query){
+  const resultsEl = document.getElementById('search-results');
+  const q = query.trim().toLowerCase();
+  if(q === ''){
+    resultsEl.classList.remove('active');
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  const matches = [];
+  HOUSE_ORDER.forEach(key => {
+    const house = HOUSES[key];
+    house.blocks.forEach(block => {
+      block.rooms.forEach(room => {
+        const roomLabel = room.label || room.id;
+        if(roomLabel.toLowerCase().includes(q)){
+          matches.push({ houseKey:key, houseName:house.name, text: `Room ${roomLabel} in ${block.name}`, sub: `${room.beds} bed${room.beds===1?'':'s'}` });
+        }
+        room.allocations.forEach(a => {
+          if(a.name.toLowerCase().includes(q) || a.festival.toLowerCase().includes(q)){
+            matches.push({ houseKey:key, houseName:house.name, text: `${a.name} — ${roomLabel} (${block.name})`, sub: `${a.festival} · ${a.count} bed${a.count===1?'':'s'}` });
+          }
+        });
+      });
+    });
+  });
+
+  resultsEl.classList.add('active');
+  if(matches.length === 0){
+    resultsEl.innerHTML = '<div class="sr-empty">No matches found.</div>';
+    return;
+  }
+  resultsEl.innerHTML = matches.slice(0,25).map(m =>
+    `<div class="sr-item" data-go="${m.houseKey}"><strong>${escapeHtml(m.houseName)}</strong><br>${escapeHtml(m.text)}<br><span style="color:var(--muted);font-size:11.5px;">${escapeHtml(m.sub)}</span></div>`
+  ).join('');
+  resultsEl.querySelectorAll('[data-go]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.getAttribute('data-go');
+      document.getElementById('global-search').value = '';
+      resultsEl.classList.remove('active');
+      openHouse(key);
+    });
+  });
+}
+
+document.getElementById('global-search').addEventListener('input', (e) => runGlobalSearch(e.target.value));
+document.addEventListener('click', (e) => {
+  const wrap = document.querySelector('.search-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    document.getElementById('search-results').classList.remove('active');
+  }
+});
+
+/* =========================================================================
+   SAVE / LOAD PROGRESS (JSON snapshot — a stand-in for a real backend
+   while this is still in trial/demo stage; export before closing, import
+   to pick back up exactly where you left off)
+   ========================================================================= */
+document.getElementById('save-progress-btn').addEventListener('click', () => {
+  const snapshot = {
+    savedAt: new Date().toISOString(),
+    houses: HOUSES,
+    dutyRoster: dutyRoster
+  };
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `boarding-house-allocations-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('load-progress-btn').addEventListener('click', () => {
+  document.getElementById('load-progress-input').click();
+});
+
+document.getElementById('load-progress-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try{
+      const data = JSON.parse(evt.target.result);
+      const houses = data.houses || data; // tolerate a raw HOUSES-only file too
+      if(!houses || typeof houses !== 'object') throw new Error('Unrecognised file format');
+      Object.keys(HOUSES).forEach(k => delete HOUSES[k]);
+      Object.assign(HOUSES, houses);
+      dutyRoster = data.dutyRoster || { festival:'', mic:'', intern:'', coordinator:'' };
+      currentHouseKey = null;
+      manualMode = false;
+      manualSelections = {};
+      editMode = false;
+      document.getElementById('house-view').style.display = 'none';
+      document.getElementById('duty-view').style.display = 'none';
+      document.getElementById('dashboard-view').style.display = 'block';
+      renderDashboard();
+      alert('Progress loaded' + (data.savedAt ? ' — snapshot from ' + new Date(data.savedAt).toLocaleString() : '') + '.');
+    } catch(err){
+      alert('Could not read that file — make sure it\'s a Save Progress file exported from this dashboard.');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+renderDashboard();
+</script>
+</body>
+</html>
